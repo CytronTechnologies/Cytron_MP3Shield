@@ -27,9 +27,9 @@ Other libraries needed:
 Functionalities:
 
 1. mp3.Init(SS,ASD) - depends on your jumpers on MP3 shield board eg.SS - D3, ASD - D2 -> mp3.Init(3,2);
-		 - returns true if successful
+		    - returns true if successful
 2. mp3.setVolume(byte volume) - set volume of file played ( range from 0 - 255) 0 - lowest, 255 - highest
-							  - default value is 220 after mp3.Init is successful
+	                      - default value is 220 after mp3.Init is successful
 3. mp3.Pause() - pause the song played
 4. mp3.Resume()- resume the song played
 5. mp3.Mute() - mute the song
