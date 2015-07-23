@@ -24,4 +24,5 @@ Other libraries needed:<br/>
 2. SPI<br/>
 3. TimerOne<br/>
 
-For more info, please refer to readme.txt in "MP3Player" folder.
+For more info, please refer to readme.txt in "MP3Player" folder.<br/>
+If you have any inquiry, please post in our <a href="http://forum.cytron.com.my/" target="_blank">technical forum</a>.
