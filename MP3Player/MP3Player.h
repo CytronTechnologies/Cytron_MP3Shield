@@ -7,18 +7,12 @@ https://code.google.com/p/sdfatlib/*/
 #ifndef MP3Player_h
 #define MP3Player_h
 
-#include "Arduino.h"
-#include "SdFat.h"
+//#include "Arduino.h"
 #include "SPI.h"
+#include <SdFat.h>
+#include "TimerOne.h"
 
-
-//Arduino Leonardo
-#if defined (__AVR_ATmega32U4__)
-	#define Serial Serial1
-#else 
-	#define Serial Serial
-#endif
-
+#define DEBUG 0
 
 //definitions
 
@@ -36,8 +30,7 @@ https://code.google.com/p/sdfatlib/*/
 #define STA013_CSL() digitalWrite(CS,LOW); 
 #define STA013_RESET(val) digitalWrite(RESET,val);
 
-#define BUF_SIZE 512
-
+#define BUF_SIZE 64
 
 #define SDA_H() pinMode(SDA,INPUT);
 #define SDA_L() pinMode(SDA,OUTPUT); digitalWrite(SDA,LOW);
@@ -53,27 +46,66 @@ extern SdFile myFile;
 class MP3Player
 {
 	public:	
+	
+	boolean Init(byte CS_uSD,byte ASD);
+	void setVolume(byte volume); 
+	void Pause(void);
+	void Resume(void);
+	void Mute(void);
+	void Unmute(void);
+	void Next(void);
+	void Previous(void);	
+	void Stop(void);
+	void On(void);
+	void Off(void);
+	void PlayTrack(const char* dirName,const char* track_name);
+	void PlayTrack(const char* dirName,int track_no);
+	void PlayTrack(const char* track_name);
+	void PlayTrack(int track_no);
+	void PlayFolder();
+	void PlayFolderStartFrom(int start_index);
+	void PlayFolder(const char* dirName);
+	void PlayFolderStartFrom(const char* dirName,int start_index);
+	void PlayFolderStartFrom(const char* start_track);
+	void PlayFolderStartFrom(const char* dirName,const char* start_track);
+	void lsFiles(const char* dirName);
+	boolean isPlaying(void);
+	boolean isPause(void);
+	boolean isMute(void);
+	String getName(void);
+	byte getVol(void);
+	String getCurrentDir(void);
+	int getTrackNo(void);
+
+	private:
+	boolean PLAY;
+	boolean _isMute;
+	boolean _isPause;
+	String name;
+	String currentDir;
+	byte vol;
+	int counter;
+	//char FileName[80];
 	byte CS_SD;
 	byte AMP;
-	boolean PLAY; 
+	boolean isPlayAll;
+	byte AudioBuf[64];
+	long filesize;
+	word k;
+	boolean finishSearch;
+	boolean ls_flag;
 	
-	
-	MP3Player(byte CS_uSD,byte ASD) ; 
-	void Init();
-	void Volume(byte volume);
-	void Play(const char* SongName); 
-	void Mute(byte mute); 
-	void Play_Pause(byte play); 
-	
-	
-	
-	
-	private:
-	void Setup_STA013(void);
+	boolean Setup_STA013(void);
 	void Run_STA013(void); 
-	
 	void Reset_STA013(void);
-	byte Verify_STA013(void);
+	boolean Verify_STA013(void);
+	boolean mp3PlayCallback();
+	static void Callback();	
+	boolean Play(const char* SongName);
+	void Halt();
+	void PlayTrack(const char* dirName,int track_no,const char* track_name);
+	void Play_Pause(byte play); 
+	void _Mute(byte mute); 
 	
 	void InitI2C(void);
 	void i2c_start(void);
@@ -82,9 +114,10 @@ class MP3Player
 	byte i2c_tx(byte d); 
 	void I2C_Write(byte Address, byte data); 
 	byte I2C_Read(byte Address); 
+
 	
 }; 
 
-
+extern MP3Player mp3;
 
 #endif

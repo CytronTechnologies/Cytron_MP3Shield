@@ -4,24 +4,31 @@
 /*Thanks to the owner of SdFat library
 https://code.google.com/p/sdfatlib/*/
 
-#include "Arduino.h"
+//#include "Arduino.h"
 #include "MP3Player.h"
+//#include "TimerOne.h"
 
-
-byte AudioBuf[512];
-long filesize;
 SdFat sd;
 SdFile myFile;
+MP3Player mp3;
 
-MP3Player::MP3Player(byte CS_uSD,byte ASD) 	//, char ctrl)
-{   
+boolean MP3Player::Init(byte CS_uSD,byte ASD)
+{
+	PLAY = false;
+	isPlayAll = false;
+	name.reserve(80);
+	name = "";
+	vol = 0;
+	counter=0;
+	currentDir.reserve(20);
+	currentDir = "";
+	_isPause = false;
+	_isMute = false;
+	ls_flag = false;
+	
 	CS_SD=CS_uSD;
 	AMP=ASD;	
-  
-}
-void MP3Player::Init()
-{
-
+	
 	pinMode(CS,OUTPUT); //STA013CS
 	digitalWrite(CS,LOW);   //deactivate sta013 spi input
 
@@ -36,78 +43,216 @@ void MP3Player::Init()
 	
 	InitI2C();
 	Reset_STA013(); 
-
-	if (!sd.begin(CS_SD, SPI_FULL_SPEED)) sd.initErrorHalt();
+	
+		
+#if DEBUG
+	Serial.begin(9600);
+	while (!Serial) ; // wait for serial port to connect. Needed for Leonardo only
+#endif
+	
+	if (!sd.begin(CS_SD, SPI_FULL_SPEED)) 
+	{
+		#if DEBUG
+		sd.initErrorHalt();
+		#endif
+		return false;
+	}
 
 	SPI.begin(); 
 
-	Serial.begin(9600);
-	while (!Serial) ; // wait for serial port to connect. Needed for Leonardo only
-	
-	
-	
-	byte stat=Verify_STA013();
-	if (stat==0) 
+	boolean stat=Verify_STA013();
+	if (stat==false) 
 	{
-		Serial.println("STA013 not exist!"); 
+		#if DEBUG
+		Serial.println("STA013 not exist!");
+		#endif
+		return false;		
 	}
 	else
-	{
+	{	
+		#if DEBUG
 		Serial.println("STA013 verified.."); 
-		Setup_STA013();  		
+		#endif
+		if(!Setup_STA013())
+		{
+			return false;
+		}
+		else
+		{
+			delay(100);
+			setVolume(220); // set volume by default in case user forgets to set it.
+			AMPON();
+			return true;
+		}
+	}
+
+}
+
+void MP3Player::setVolume(byte volume)
+{
+  #define DLA 0x46
+  #define DRA 0x48
+  byte Vol;
+  
+  Vol=255-volume;
+  
+  I2C_Write(DLA, Vol);    //left channel volume
+  I2C_Write(DRA, Vol);    //right channel volume
+  
+  vol = volume;
+
+}
+boolean MP3Player::Play(const char* SongName)
+{  
+  if(!PLAY)
+  {
+	k=65;
+	if(!myFile.isOpen())
+	{
+		// open the file for read
+		if (!myFile.open(SongName, O_READ)) 
+		{
+			#if DEBUG
+			sd.errorHalt("open audio file failed");
+			#endif 
+			return false;
+		}
+		/*else
+		{
+			char FileName[80];
+			myFile.getName(FileName,80);
+			name = FileName;
+			counter = 0;
+			String dir = SongName;
+			currentDir = dir.substring(0,dir.indexOf(name));
+			currentDir = (currentDir==""? "/":
+				(currentDir.substring(0,currentDir.length()-1)));
+		}*/
+	}
+	else
+		name = SongName;
+
+	Run_STA013(); 
+	delay(500);
+	Play_Pause(1); 
+  
+	//AMPON();  
+
+	#if DEBUG
+	Serial.println("playing");
+	#endif 
+   
+	filesize=myFile.fileSize();
+	Timer1.initialize(30);// 30 us = can check data request and send a byte to STA013 at 1/30u = 33.33kHz
+							// able to play a song up to 33.33 x 8 /1024 = 260 kbps
+							// recommend play song at 200kbps or lower (such as 128 kbps)for stable performance
+	PLAY=true; 
+	Timer1.attachInterrupt(Callback);
+  }
+
+  return true;   
+}
+
+void MP3Player::Pause()
+{
+	if(PLAY)
+		Play_Pause(0);
+}
+
+void MP3Player::Resume()
+{
+	if(PLAY)
+		Play_Pause(1);
+}
+
+void MP3Player::Mute(void)
+{
+	_Mute(1);
+}
+
+void MP3Player::Unmute(void)
+{
+	_Mute(0);
+}
+
+void MP3Player::Next()
+{
+	if(isPlayAll){
+		PLAY = false;
 		delay(100);
 	}
 
 }
 
-void MP3Player::Volume(byte volume)
+void MP3Player::Previous()
 {
-  #define DLA 0x46
-  #define DRA 0x48
-  byte vol;
-  
-  vol=255-volume;
-  
-  I2C_Write(DLA, vol);    //left channel volume
-  I2C_Write(DRA, vol);    //right channel volume
-
-}
-void MP3Player::Play(const char* SongName)
-{  
-  byte dat;
-  word k=513;
-  
-  PLAY=true; 
-  if(!myFile.isOpen	())
-  {
-   // open the file for read
-	if (!myFile.open(SongName, O_READ)) 
+	if(isPlayAll&&(counter-1)>0)
 	{
-	sd.errorHalt("open audio file failed");
+		Stop();
+		PlayTrack(currentDir.c_str(),(counter-1));//temp,currentDir.c_str()
+		isPlayAll = true;
 	}
-  }
-  
-   
-  Run_STA013();   
-  Play_Pause(1); 
-  
-  AMPON(); 
-  Serial.println("playing");
-   
-   
-   filesize=myFile.fileSize();
-   
-   while(filesize>0 &&PLAY==true)
+}
+
+void MP3Player::Stop()
+{
+	PLAY = false;
+	isPlayAll = false;
+	delay(100);
+}
+
+void MP3Player::On()
+{
+	AMPON();
+}
+
+void MP3Player::Off()
+{
+	AMPSHUTDOWN();
+}
+
+void MP3Player::Callback()
+{
+  if(!mp3.mp3PlayCallback())
+    mp3.Halt();
+}
+
+void MP3Player::Halt()
+{
+	Timer1.detachInterrupt();
+	PLAY=false; 
+	while(!myFile.close())
+	{
+	   #if DEBUG
+	   Serial.println("close audio file");
+	   #endif 
+	}
+	//AMPSHUTDOWN();
+	#if DEBUG
+    Serial.println("finish");
+	#endif 
+	delay(100);
+	name = "";
+	  if(isPlayAll)
+		PlayTrack("",0,"");
+}
+
+boolean MP3Player::mp3PlayCallback()
+{
+   if(filesize==0 &&PLAY==true)
    { 
-     
-     if(k>=BUF_SIZE)
-     {     //if buffer emptied refill buffer
-        word res=myFile.read(AudioBuf, BUF_SIZE);
+     return false;
+   }
+   
+   else if(filesize>0 &&PLAY==true)
+   {
+	if(k>=BUF_SIZE)
+    {     //if buffer emptied refill buffer
+        //word res=
+		myFile.read(AudioBuf, BUF_SIZE);
               //reset counter
         k=0; 
-     }
-    
-     
+    }
  
     if(STA013_DATREQ())       // if STA013 request data
     {
@@ -117,28 +262,237 @@ void MP3Player::Play(const char* SongName)
         STA013_CSL();   //disable STA013      
         k++;
         filesize--;        //counting down
-       
-       
     }
+	
+	return true;
+	
    }
-   PLAY=false; 
+   else
+	 return false;
    
-   while(!myFile.close())
-   {Serial.println("close audio file");}
-   
-   AMPSHUTDOWN();  
 }
 
-void MP3Player::Setup_STA013(void)
+void MP3Player::PlayTrack(const char* dirName,int track_no,const char* track_name)
+{	
+	if(!PLAY)
+	{
+	 finishSearch = false;
+	 int count=0;
+	 //if(track_no>0)
+		 //counter = track_no;
+	
+	if(!isPlayAll)
+	{
+		char temp[20];
+		isPlayAll = true;
+		sd.chdir();delay(100);
+		sd.chdir(dirName,true);
+		sd.vwd()->rewind();
+		sd.vwd()->getName(temp,20);
+		currentDir = temp;
+		counter = 0;
+	}
+
+	while(true)
+	{
+		if(myFile.openNext(myFile.cwd(), O_READ))
+		{
+			char FileName[80];
+			myFile.getName(FileName,80);
+			#if DEBUG
+				//myFile.printName(&Serial);
+				Serial.print(FileName);
+				if (myFile.isDir()) 
+				{
+					// Indicate a directory.
+					Serial.write('/');
+				}
+				Serial.println();
+			#endif
+			
+			if (!(myFile.isDir()||(String(FileName).indexOf(".mp3")==-1&&String(FileName).indexOf(".MP3")==-1))) 
+			{
+				counter++;
+				
+				if(ls_flag)
+				{
+					Serial.print(counter);
+					Serial.print(". ");
+					Serial.print(FileName);
+					Serial.print("     ");
+					Serial.print(myFile.fileSize());
+					Serial.println(" bytes");
+					myFile.close();
+					continue;
+				}
+				
+				//Play(FileName);
+				if(!String(track_name).equals(""))
+				{
+					//counter++;
+					if(String(track_name).equals(FileName))
+					{
+						Play(FileName);
+						//name = track_name;
+						isPlayAll = false;
+						break;
+					}
+				}
+				
+				else if(track_no==0)
+				{
+					//counter++;
+					Play(FileName);
+					break;
+				}
+				else if(track_no>0)
+				{
+					count++;
+					if(count==track_no)
+					{
+						counter = track_no;
+						Play(FileName);
+						isPlayAll = false;
+						break;
+					}
+				}
+				
+
+			}
+	
+		}
+
+		else
+		{
+			isPlayAll = false;
+			finishSearch = true;
+			ls_flag = false;
+			break;
+		}
+		//myFile.getFilename(FileName);
+		myFile.close();
+	}
+	}
+	
+}
+void MP3Player::PlayTrack(const char* track_name)
+{	
+	if(!String(track_name).equals(""))
+		PlayTrack("/",-1,track_name);
+}
+
+
+void MP3Player::PlayTrack(int track_no)
+{	
+	if(track_no>0)
+		PlayTrack("/",track_no,"");
+}
+
+void MP3Player::PlayTrack(const char* dirName,const char* track_name)
+{	
+	if(!String(track_name).equals(""))
+		PlayTrack(dirName,-1,track_name);
+}
+
+void MP3Player::PlayTrack(const char* dirName,int track_no)
+{
+	if(track_no>0)
+		PlayTrack(dirName,track_no,"");
+}
+
+void MP3Player::PlayFolder()
+{
+	PlayTrack("/",0,"");
+}
+
+void MP3Player::PlayFolderStartFrom(int start_index)
+{
+	PlayTrack(start_index);
+	if(!finishSearch)
+		isPlayAll = true;
+}
+
+void MP3Player::PlayFolder(const char* dirName)
+{
+	PlayTrack(dirName,0,"");
+}
+
+void MP3Player::PlayFolderStartFrom(const char* dirName,int start_index)
+{
+	PlayTrack(dirName,start_index);
+	if(!finishSearch)
+		isPlayAll = true;
+}
+
+void MP3Player::PlayFolderStartFrom(const char* start_track)
+{
+	PlayTrack(start_track);
+	if(!finishSearch)
+		isPlayAll = true;
+}
+
+void MP3Player::PlayFolderStartFrom(const char* dirName,const char* start_track)
+{
+	PlayTrack(dirName,start_track);
+	if(!finishSearch)
+		isPlayAll = true;
+}
+
+void MP3Player::lsFiles(const char* dirName)
+{
+	ls_flag = true;
+	PlayFolder(dirName);
+}
+
+boolean MP3Player::isPlaying(void)
+{
+	return PLAY;
+}
+
+boolean MP3Player::isPause(void)
+{
+	return _isPause;
+}
+
+boolean MP3Player::isMute(void)
+{
+	return _isMute;
+}
+
+String MP3Player::getName(void)
+{
+	return name;
+}
+byte MP3Player::getVol(void)
+{
+	return vol;
+}
+String MP3Player::getCurrentDir(void)
+{
+	return currentDir;
+}
+int MP3Player::getTrackNo(void)
+{
+	return counter;
+}
+
+boolean MP3Player::Setup_STA013(void)
 { 
   byte buf[2];
-
+  
   if (!myFile.open("sta013.cfg", O_READ)) 
   {
-    sd.errorHalt("cfg file error");
+    #if DEBUG
+	sd.errorHalt("cfg file error");
+	#endif 
+	return false;
   }
+  
+  #if DEBUG
   Serial.println("setting STA013 from cfgfile");  
-     
+  #endif 
+  
+  
   while (myFile.available()) 
   {
     buf[0]=byte (myFile.read());
@@ -147,12 +501,20 @@ void MP3Player::Setup_STA013(void)
     // Serial.write(buf[0]);
     // Serial.write(buf[1]);
   }  
-
+  
   while(!myFile.close())
-  {Serial.println("close cfg file..");}
-
+  {
+	  #if DEBUG
+	  Serial.println("close cfg file..");
+	  #endif
+  }
+  
+    
+  #if DEBUG
   Serial.println("Setup STA013 Register Done..");     
-      
+  #endif 
+  
+  return true;
 }
 
 
@@ -166,13 +528,16 @@ void MP3Player::Run_STA013(void)
 void MP3Player::Play_Pause(byte play)
 {
 
-    delay(500);
+    //delay(500);
     I2C_Write(19, play);       //play
+	_isPause = (play==0?true:false);
 }
-void MP3Player::Mute(byte mute)
+void MP3Player::_Mute(byte mute)
 {
 	
 	I2C_Write(0x14, mute);       //play
+	_isMute = (mute==0?false:true);
+	
 }
 
 void MP3Player::Reset_STA013(void)
@@ -184,15 +549,15 @@ void MP3Player::Reset_STA013(void)
 }
 
 //check the presence of STA013
-byte MP3Player::Verify_STA013(void)
+boolean MP3Player::Verify_STA013(void)
 {
     byte data;
     data=I2C_Read(0x01);
 
     if( data==0xAC)
-        return(1);
+        return true;
     else
-        return (0);
+        return false;
 }
 
 void MP3Player::InitI2C(void)
@@ -224,7 +589,6 @@ void MP3Player::i2c_stop(void)
   SDA_H(); 
   i2c_dly();
 }
-
 
 byte MP3Player::i2c_rx(byte ack)
 {
