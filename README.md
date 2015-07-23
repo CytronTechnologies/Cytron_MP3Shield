@@ -19,9 +19,9 @@ Limitations:<br/>
 - TimerOne interrupt cannot be used for other purposes while playing MP3 files.<br/>
 - Time critical programs in main loop might be affected if the bitrate of MP3 files are high.<br/>
 
-Other libraries needed:
-1. SdFat
-2. SPI
-3. TimerOne
+Other libraries needed:<br/>
+1. SdFat<br/>
+2. SPI<br/>
+3. TimerOne<br/>
 
 For more info, please refer to readme.txt in "MP3Player" folder.
