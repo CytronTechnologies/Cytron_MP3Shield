@@ -14,6 +14,8 @@ int vol = 220;
 void setup()
 {
   //initialize the player: setup STA013 from STA013.cfg file in SD card
+  Serial.begin(9600);
+  while(!Serial); // for arduino leonardo only
   
   if(!mp3.Init(3,2))
   {
@@ -23,7 +25,6 @@ void setup()
     
   mp3.setVolume(vol);
   
-  Serial.begin(9600);
   Serial.println("Please type the name of the folder to play:");
   while(Serial.available()<=0);
   while (Serial.available()) 
