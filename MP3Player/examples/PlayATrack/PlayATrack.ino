@@ -19,6 +19,9 @@ void setup()
   pinMode(A0,INPUT);
   randomSeed(analogRead(A0));
   
+  Serial.begin(9600);
+  while(!Serial); // for arduino leonardo only
+  
   if(!mp3.Init(3,2))
   {
     Serial.println("Init failed");
@@ -27,7 +30,6 @@ void setup()
     
   mp3.setVolume(vol);
   
-  Serial.begin(9600);
   mp3.PlayTrack(Folder,default_song);
   Serial.println("Currently playing...");
   Serial.print("Track "+String(mp3.getTrackNo()));
