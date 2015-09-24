@@ -19,7 +19,7 @@ Library for Cytron MP3 shield has been revised to allow the music to be played a
 - Time critical programs in main loop might be affected if the bitrate of MP3 files are high.<br/>
 
 <strong>Other libraries needed:</strong><br/>
-1. Latest SdFat Library (can be downloaded from folders <strong>extras</strong>) <br/>
+1. Latest SdFat Library (can be downloaded from folder <strong>extras</strong>) <br/>
 2. SPI<br/>
 3. TimerOne<br/>
 
