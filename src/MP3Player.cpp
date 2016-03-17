@@ -4,9 +4,7 @@
 /*Thanks to the owner of SdFat library
 https://code.google.com/p/sdfatlib/*/
 
-//#include "Arduino.h"
 #include "MP3Player.h"
-//#include "TimerOne.h"
 
 SdFat sd;
 SdFile myFile;
@@ -117,17 +115,6 @@ boolean MP3Player::Play(const char* SongName)
 			#endif 
 			return false;
 		}
-		/*else
-		{
-			char FileName[80];
-			myFile.getName(FileName,80);
-			name = FileName;
-			counter = 0;
-			String dir = SongName;
-			currentDir = dir.substring(0,dir.indexOf(name));
-			currentDir = (currentDir==""? "/":
-				(currentDir.substring(0,currentDir.length()-1)));
-		}*/
 	}
 	else
 		name = SongName;
@@ -179,7 +166,7 @@ void MP3Player::Next()
 {
 	if(isPlayAll){
 		PLAY = false;
-		delay(100);
+		delayMicroseconds(100000);
 	}
 
 }
@@ -285,7 +272,7 @@ void MP3Player::PlayTrack(const char* dirName,int track_no,const char* track_nam
 	{
 		char temp[20];
 		isPlayAll = true;
-		sd.chdir();delay(100);
+		sd.chdir();delayMicroseconds(100000);
 		sd.chdir(dirName,true);
 		sd.vwd()->rewind();
 		sd.vwd()->getName(temp,20);
