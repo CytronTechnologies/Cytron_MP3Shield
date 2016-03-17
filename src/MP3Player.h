@@ -8,7 +8,7 @@ https://code.google.com/p/sdfatlib/*/
 #define MP3Player_h
 
 //#include "Arduino.h"
-#include "SPI.h"
+#include <SPI.h>
 #include <SdFat.h>
 #include "TimerOne.h"
 
