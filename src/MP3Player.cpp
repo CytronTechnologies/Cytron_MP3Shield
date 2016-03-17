@@ -79,7 +79,7 @@ boolean MP3Player::Init(byte CS_uSD,byte ASD)
 		}
 		else
 		{
-			delay(100);
+			delayMicroseconds(100000);
 			setVolume(220); // set volume by default in case user forgets to set it.
 			AMPON();
 			return true;
@@ -132,9 +132,9 @@ boolean MP3Player::Play(const char* SongName)
 	else
 		name = SongName;
 
-	Run_STA013(); 
-	delay(500);
-	Play_Pause(1); 
+	Run_STA013();
+	delayMicroseconds(500000);
+	Play_Pause(1);
   
 	//AMPON();  
 
@@ -198,7 +198,7 @@ void MP3Player::Stop()
 {
 	PLAY = false;
 	isPlayAll = false;
-	delay(100);
+	delayMicroseconds(100000);
 }
 
 void MP3Player::On()
@@ -231,7 +231,7 @@ void MP3Player::Halt()
 	#if DEBUG
     Serial.println("finish");
 	#endif 
-	delay(100);
+	delayMicroseconds(100000);
 	name = "";
 	  if(isPlayAll)
 		PlayTrack("",0,"");
@@ -520,7 +520,7 @@ boolean MP3Player::Setup_STA013(void)
 
 void MP3Player::Run_STA013(void)
 {      //leave idle and start decode
-    delay(500);
+    delayMicroseconds(500000);
     I2C_Write(114, 1);      //start STA013
 }
 
@@ -543,9 +543,9 @@ void MP3Player::_Mute(byte mute)
 void MP3Player::Reset_STA013(void)
 {
     STA013_RESET(LOW);
-    delay(500);
+    delayMicroseconds(500000);
     STA013_RESET(HIGH);
-    delay(500); 
+    delayMicroseconds(500000);
 }
 
 //check the presence of STA013
